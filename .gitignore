@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+.env
+venv/
+*.pyc
+
+# Julep.ai specific
+.julep/
+julep-lock.json
+
+# API Keys & Sensitive Info
+config.py
+*.env # If you use .env files for secrets

@@ -1,0 +1,12 @@
+name: foodie-tour-planner
+description: A Julep.ai project to plan one-day foodie tours across cities.
+version: 0.1.0
+
+agent: src/agents/agent.yaml
+
+tasks:
+  - src/tasks/foodie_tour_task.yaml
+
+tools:
+  - src/tools/weather_tool.yaml
+  - src/tools/yelp_restaurant_search_tool.yaml
