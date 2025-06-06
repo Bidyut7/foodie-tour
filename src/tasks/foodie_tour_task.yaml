@@ -1,0 +1,120 @@
+name: MultiCityFoodieTourPlanner
+description: Generates a delightful one-day foodie tour for a list of cities.
+input_schema:
+  type: object
+  properties:
+    cities:
+      type: array
+      items:
+        type: string
+      description: A list of city names for the foodie tour.
+
+main:
+  - step:
+      name: IterateCities
+      description: Process each city in the input list.
+      type: loop
+      over: ${input.cities}
+      do:
+        - step:
+            name: GetCityWeather
+            description: Fetches today's weather for the current city.
+            tool: weather_tool
+            arguments:
+              location: ${loop_item}
+            output_key: weather_data
+
+        - step:
+            name: SuggestDiningStyle
+            description: Suggests indoor or outdoor dining based on weather.
+            prompt:
+              - role: system
+                content: |
+                  You are a foodie tour planner. Given the weather conditions:
+                  ${steps.GetCityWeather.output.summary}
+                  Suggest whether indoor or outdoor dining is more suitable for a delightful experience.
+                  Consider temperature, precipitation, and wind.
+                  Output only "indoor" or "outdoor".
+              - role: user
+                content: "Weather for ${loop_item}: ${steps.GetCityWeather.output.detailed_description}"
+            output_key: dining_suggestion
+
+        - step:
+            name: PickIconicDishes
+            description: Identifies 3 iconic local dishes for the current city.
+            prompt:
+              - role: system
+                content: |
+                  You are a local food expert. For the city of ${loop_item}, identify 3 absolutely iconic and must-try local dishes.
+                  Prioritize dishes that are unique to the region and popular among locals.
+                  Output a JSON array of dish names, e.g., ["Dish A", "Dish B", "Dish C"].
+              - role: user
+                content: "What are 3 iconic local dishes for ${loop_item}?"
+            output_key: iconic_dishes
+
+        - step:
+            name: FindRestaurantsForDishes
+            description: Finds top-rated restaurants for each iconic dish.
+            type: loop
+            over: ${steps.PickIconicDishes.output}
+            do:
+              - step:
+                  name: SearchRestaurantsForDish
+                  description: Searches for top-rated restaurants serving the current dish.
+                  tool: restaurant_search_tool
+                  arguments:
+                    query: "${loop_item} restaurant"
+                    location: ${loop_item.parent_step_loop_item}
+                    categories: "food"
+                    sort_by: "rating"
+                    limit: 5
+                  output_key: restaurants_for_dish
+              - step:
+                  name: ExtractTopRestaurant
+                  description: Extracts the top-rated restaurant from the search results, ensuring it serves the dish.
+                  prompt:
+                    - role: system
+                      content: |
+                        From the following JSON list of restaurants for "${loop_item.parent_step_loop_item}", identify the single best top-rated restaurant that likely serves "${loop_item}" based on its name, categories, and reviews (if available).
+                        Output its name and address in JSON format: {"name": "Restaurant Name", "address": "Address"}.
+                        If no suitable restaurant is撾 found, output null.
+                        Here are the restaurant details: ${steps.SearchRestaurantsForDish.output}
+                    - role: user
+                      content: "Find the best restaurant for '${loop_item}' from this list in ${loop_item.parent_step_loop_item}."
+                  output_key: best_restaurant_for_dish
+            output_key: selected_restaurants
+
+        - step:
+            name: CraftFoodieTourItinerary
+            description: Creates the one-day foodie tour itinerary.
+            prompt:
+              - role: system
+                content: |
+                  You are a creative foodie tour guide. Craft a delightful one-day "foodie tour" for ${loop_item}.
+                  Factor in the weather conditions: ${steps.GetCityWeather.output.detailed_description} and the suggested dining style: ${steps.SuggestDiningStyle.output}.
+                  Use the following iconic dishes and top-rated restaurants, ensuring each meal (breakfast, lunch, dinner) features one of the iconic dishes and a suggested restaurant:
+                  ${steps.selected_restaurants | to_json}
+
+                  Create engaging narratives for breakfast, lunch, and dinner. Each narrative should specify the meal, the featured dish, the restaurant name, and its address. Suggest a suitable dining spot (indoor/outdoor) based on the weather.
+                  Make it engaging and enticing.
+
+                  Output a structured JSON object with "city", "weather_summary", "dining_suggestion", "itinerary": {"breakfast": {"dish": "...", "restaurant": "...", "address": "...", "narrative": "..."}, "lunch": {...}, "dinner": {...}}.
+              - role: user
+                content: "Plan a foodie tour for ${loop_item}."
+            output_key: city_foodie_tour_itinerary
+
+      output_key: all_city_itineraries
+
+  - step:
+      name: FinalOutput
+      description: Combines all city itineraries into a final report.
+      prompt:
+        - role: system
+          content: |
+            Here are the delightful foodie tour itineraries for multiple cities:
+            ${steps.all_city_itineraries | to_json}
+
+            Present them in a user-friendly, attractive markdown format.
+        - role: user
+          content: "Generate the final foodie tour report."
+      output_key: final_foodie_tour_report

@@ -1,0 +1,14 @@
+name: restaurant_search_tool
+type: api_call
+api_call:
+  url: "https://api.yelp.com/v3/businesses/search"
+  method: GET
+  headers:
+    Authorization: "Bearer ${YELP_API_KEY}" 
+  query_params:
+    term: "{query}"
+    location: "{location}"
+    categories: "food"
+    limit: 5
+    sort_by: "rating"
+description: Searches for restaurants using Yelp Fusion API based on a query and location, returning top-rated results.

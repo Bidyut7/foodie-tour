@@ -1,0 +1,5 @@
+name: weather_tool
+type: integration
+integration:
+  provider: weather
+description: Fetches current weather information for a given location.
